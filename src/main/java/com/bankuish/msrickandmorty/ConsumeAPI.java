@@ -2,10 +2,14 @@ package com.bankuish.msrickandmorty;
 
 import com.bankuish.msrickandmorty.models.Character;
 import com.bankuish.msrickandmorty.models.Response;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -19,7 +23,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.*;
 import java.util.stream.Collectors;
 
-
+@Slf4j
 @RestController
 public class ConsumeAPI {
     @Autowired
@@ -45,8 +49,9 @@ public class ConsumeAPI {
         boolean morePages = true;
 
         while (morePages) {
-
+            log.info("The request:" + url);
             json = restTemplate.exchange(url, HttpMethod.GET, entity, String.class).getBody();
+            log.info("The response" + toPrettyFormat(json));
 
             try {
                 response = mapper.reader().forType(new TypeReference<List<Response>>() {
@@ -66,6 +71,47 @@ public class ConsumeAPI {
         return getRandomList(getPopularity(characters), id);
     }
 
+    @RequestMapping(value = "/characters/")
+    public List<Character> getCharacterList() {
+
+        List<Character> characters = new ArrayList<>();
+        List<Response> response;
+
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+        HttpEntity<String> entity = new HttpEntity<String>(headers);
+
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
+
+
+        String url = "https://rickandmortyapi.com/api/character";
+        String json;
+        boolean morePages = true;
+
+        while (morePages) {
+            log.info("The request:" + url);
+            json = restTemplate.exchange(url, HttpMethod.GET, entity, String.class).getBody();
+            log.info("The response" + toPrettyFormat(json));
+
+            try {
+                response = mapper.reader().forType(new TypeReference<List<Response>>() {
+                }).readValue(json);
+                if (response != null) {
+                    url = response.get(0).getInfo().getNext();
+                    if (url == null) morePages = false;
+                    if (response.get(0).getResults() != null) {
+                        characters.addAll(response.get(0).getResults());
+                    }
+                }
+            } catch (JsonProcessingException ex) {
+                System.out.println("Exception:" + ex.getMessage());
+                ex.printStackTrace();
+            }
+        }
+        return getRandomList(getPopularity(characters), null);
+    }
 
     @RequestMapping(value = "/character/{id}")
     public Character getCharacterByID(@PathVariable("id") String id) {
@@ -82,6 +128,8 @@ public class ConsumeAPI {
 
         String url = "https://rickandmortyapi.com/api/character/" + id;
         String json = restTemplate.exchange(url, HttpMethod.GET, entity, String.class).getBody();
+        log.info("The request:" + url);
+        log.info("The response" + toPrettyFormat(json));
 
         try {
             character = mapper.reader().forType(new TypeReference<Character>() {
@@ -139,12 +187,24 @@ public class ConsumeAPI {
         for (int i = 0; i < 5; i++) {
             randomCharacter = random.nextInt(characters.size());
             idCharacter = String.valueOf(characters.get(randomCharacter).getId());
-            if (!id.contains(idCharacter))
-                randomCharacters.add(characters.get(randomCharacter));
-            else i--;
+            if(id!=null) {
+                if (!id.contains(idCharacter))
+                    randomCharacters.add(characters.get(randomCharacter));
+                else i--;
+            }
+            else randomCharacters.add(characters.get(randomCharacter));
         }
         return randomCharacters;
+    }
 
-
+    public static String toPrettyFormat(String jsonString)
+    {
+        JSONObject jsonObj = null;
+        try {
+            jsonObj = new JSONObject(jsonString);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return jsonObj.toString();
     }
 }
