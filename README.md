@@ -16,13 +16,16 @@ In the future this popularity will be calculated calling other API Rest
 
 ## Run
 
-Through command line: java -jar /target/ms-rickandmorty-0.0.1-SNAPSHOT.jar
-
+Through command line: 
+```python
+java -jar /target/ms-rickandmorty-0.0.1-SNAPSHOT.jar
+```
 Docker
 
+```python
 docker build -t rick-morty .
 docker run -p 8080:8080 rick-morty
-
+```
 ## Usage
 
 ```python
